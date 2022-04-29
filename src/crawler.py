@@ -1,6 +1,8 @@
+### Functions for processing data and organising workers and queues
 import queue
 import os
 from src.worker import HTTPWorker, WorkerType
+import re
 
 def do_css_scrape(data: list, workers_amount: int):
     q = queue.Queue()
@@ -12,8 +14,9 @@ def do_css_scrape(data: list, workers_amount: int):
         worker = HTTPWorker(q, WorkerType.CSS_SCRAPER)
         worker.start()
         workers.append(worker)
-
+    ct = 1
     for worker in workers:
+        ct+=1
         worker.join()
     
     r = {}
@@ -49,3 +52,22 @@ def process_urls():
                 res.append((website_name,f.read().split("\n")))
     return res
 
+def write_scrape(results):
+    for file in os.listdir("res"):
+        os.remove(os.path.join("res",file))
+    for res in results.items():
+        if len(res[1][0]):
+            with open(os.path.join(os.getcwd(),"res",res[0][8:]+".urls"), "w+", encoding='utf-8') as f:
+                f.writelines("\n".join(res[1][0]))
+        with open(os.path.join(os.getcwd(),"res",res[0][8:]+".css"), "w+", encoding='utf-8') as f:
+            
+            # Erasing comments to save resources later
+            f.writelines(re.sub(r"\/\*[^*]*\*+([^/*][^*]*\*+)*\/", "", "\n".join(res[1][1])))
+
+def write_external(results):
+    for website, css in results.items():
+        with open(os.path.join("res",website+".css"), "a", encoding="utf-8") as f:
+            f.write("\n"+"/*BEGIN EXTERNAL CSS*/")
+            # Erasing comments to save resources later on
+            f.write("\n"+re.sub(r"\/\*[^*]*\*+([^/*][^*]*\*+)*\/", "", css))
+        os.remove(os.path.join(os.getcwd(),"res",website+".urls"))
